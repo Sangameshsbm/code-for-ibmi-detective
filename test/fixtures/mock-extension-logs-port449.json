@@ -1,0 +1,17 @@
+{
+  "collected_at": "2025-01-15T09:14:32Z",
+  "collection_mode": "mock",
+  "vscode_version": "1.96.0",
+  "extension_version": "3.0.2",
+  "previous_extension_version": null,
+  "upgrade_date": null,
+  "platform": "win32",
+  "output_log": "[2025-01-15 09:14:28] Code for IBM i: Connecting to DEVIBMI01\n[2025-01-15 09:14:28] Code for IBM i: ERROR - TCP connection to DEVIBMI01:449 refused\n[2025-01-15 09:14:28] Code for IBM i: ERROR - ECONNREFUSED on port 449\n[2025-01-15 09:14:29] Code for IBM i: ERROR - Cannot reach sign-on service. Host servers may not be running.\n[2025-01-15 09:14:30] Code for IBM i: ERROR - Connection failed. Verify STRHOSTSVR has been run on the IBM i system.",
+  "connection_trace": "[TRACE] 09:14:28.001 Initiating TCP connection to DEVIBMI01:449\n[TRACE] 09:14:28.012 ECONNREFUSED - port 449 not listening\n[TRACE] 09:14:28.013 Connection attempt aborted",
+  "error_summary": [
+    "ERROR - TCP connection to DEVIBMI01:449 refused",
+    "ERROR - ECONNREFUSED on port 449",
+    "ERROR - Cannot reach sign-on service. Host servers may not be running.",
+    "ERROR - Connection failed. Verify STRHOSTSVR has been run on the IBM i system."
+  ]
+}

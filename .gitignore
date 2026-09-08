@@ -1,0 +1,29 @@
+# Build output
+dist/
+out/
+
+# Dependencies
+node_modules/
+packages/mcp-server/node_modules/
+
+# VS Code extension packaging
+*.vsix
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Logs
+*.log
+npm-debug.log*
+
+# TypeScript cache
+*.tsbuildinfo

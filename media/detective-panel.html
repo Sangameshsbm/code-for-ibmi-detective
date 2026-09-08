@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="{{csp}}" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IBM i Detective</title>
+  <style>
+    /* ── Reset & base ──────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--vscode-font-family, -apple-system, "Segoe UI", system-ui, sans-serif);
+      font-size: var(--vscode-font-size, 13px);
+      color: var(--vscode-foreground, #cccccc);
+      background: var(--vscode-editor-background, #1e1e1e);
+      padding: 24px;
+      line-height: 1.6;
+    }
+
+    h1 {
+      font-size: 1.3em;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--vscode-editor-foreground, #d4d4d4);
+    }
+
+    .subtitle {
+      font-size: 0.85em;
+      color: var(--vscode-descriptionForeground, #888);
+      margin-bottom: 20px;
+    }
+
+    /* ── Phase containers ─────────────────────────────────────────────── */
+    .phase { display: none; }
+    .phase.active { display: block; }
+
+    /* ── Form ──────────────────────────────────────────────────────────── */
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 6px;
+      font-size: 0.9em;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 100px;
+      background: var(--vscode-input-background, #3c3c3c);
+      color: var(--vscode-input-foreground, #cccccc);
+      border: 1px solid var(--vscode-input-border, #555);
+      border-radius: 4px;
+      padding: 8px 10px;
+      font-size: 0.9em;
+      font-family: inherit;
+      resize: vertical;
+      outline: none;
+    }
+    textarea:focus {
+      border-color: var(--vscode-focusBorder, #007fd4);
+    }
+
+    .hint {
+      font-size: 0.78em;
+      color: var(--vscode-descriptionForeground, #888);
+      margin-top: 4px;
+      margin-bottom: 16px;
+    }
+
+    button {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--vscode-button-background, #0e639c);
+      color: var(--vscode-button-foreground, #ffffff);
+      border: none;
+      border-radius: 4px;
+      padding: 7px 18px;
+      font-size: 0.9em;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover {
+      background: var(--vscode-button-hoverBackground, #1177bb);
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    button.secondary {
+      background: var(--vscode-button-secondaryBackground, #3a3d41);
+      color: var(--vscode-button-secondaryForeground, #cccccc);
+    }
+    button.secondary:hover {
+      background: var(--vscode-button-secondaryHoverBackground, #45494e);
+    }
+
+    /* ── Progress steps ───────────────────────────────────────────────── */
+    .steps {
+      list-style: none;
+      margin-top: 20px;
+    }
+
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      font-size: 0.9em;
+      color: var(--vscode-descriptionForeground, #888);
+      border-bottom: 1px solid var(--vscode-editorWidget-border, #454545);
+    }
+    .step:last-child { border-bottom: none; }
+
+    .step.done   { color: #22c55e; }
+    .step.active { color: var(--vscode-editor-foreground, #d4d4d4); font-weight: 600; }
+
+    .step-icon {
+      width: 20px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    /* ── Confidence badge ─────────────────────────────────────────────── */
+    .badge {
+      display: inline-block;
+      padding: 3px 12px;
+      border-radius: 12px;
+      font-size: 0.78em;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .badge.high   { background: #14532d; color: #22c55e; border: 1px solid #22c55e; }
+    .badge.medium { background: #451a03; color: #f59e0b; border: 1px solid #f59e0b; }
+    .badge.low    { background: #450a0a; color: #ef4444; border: 1px solid #ef4444; }
+
+    /* ── Result card ──────────────────────────────────────────────────── */
+    .card {
+      background: var(--vscode-editorWidget-background, #252526);
+      border: 1px solid var(--vscode-editorWidget-border, #454545);
+      border-radius: 6px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .card-title {
+      font-weight: 700;
+      font-size: 0.95em;
+    }
+
+    .card-meta {
+      font-size: 0.78em;
+      color: var(--vscode-descriptionForeground, #888);
+      margin-bottom: 12px;
+    }
+
+    .card-meta a {
+      color: var(--vscode-textLink-foreground, #3794ff);
+      text-decoration: none;
+    }
+    .card-meta a:hover { text-decoration: underline; }
+
+    /* ── Resolution steps ─────────────────────────────────────────────── */
+    .resolution-title {
+      font-weight: 600;
+      font-size: 0.85em;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--vscode-descriptionForeground, #888);
+    }
+
+    ol.steps-list {
+      padding-left: 22px;
+      margin-bottom: 0;
+    }
+
+    ol.steps-list li {
+      font-size: 0.88em;
+      margin-bottom: 6px;
+      line-height: 1.5;
+    }
+
+    /* ── Expandable body ──────────────────────────────────────────────── */
+    .expander-toggle {
+      background: none;
+      border: none;
+      color: var(--vscode-textLink-foreground, #3794ff);
+      cursor: pointer;
+      font-size: 0.82em;
+      padding: 0;
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .expander-toggle:hover { text-decoration: underline; }
+
+    .expander-body {
+      display: none;
+      margin-top: 8px;
+      position: relative;
+    }
+    .expander-body.open { display: block; }
+
+    pre {
+      background: var(--vscode-textCodeBlock-background, #1e1e1e);
+      border: 1px solid var(--vscode-editorWidget-border, #454545);
+      border-radius: 4px;
+      padding: 10px;
+      font-size: 0.78em;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 200px;
+      overflow-y: auto;
+      color: var(--vscode-editor-foreground, #d4d4d4);
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      font-size: 0.75em;
+      padding: 3px 10px;
+    }
+
+    /* ── No-match phase ───────────────────────────────────────────────── */
+    .no-match-box {
+      background: var(--vscode-editorWidget-background, #252526);
+      border: 1px solid var(--vscode-editorWidget-border, #454545);
+      border-radius: 6px;
+      padding: 20px;
+      margin-top: 16px;
+    }
+
+    .no-match-box p { margin-bottom: 10px; font-size: 0.9em; }
+
+    /* ── Error ──────────────────────────────────────────────────────────── */
+    .error-box {
+      background: #1a0000;
+      border: 1px solid #ef4444;
+      border-radius: 6px;
+      padding: 12px 16px;
+      color: #ef4444;
+      font-size: 0.88em;
+      margin-top: 16px;
+    }
+
+    /* ── Misc ───────────────────────────────────────────────────────────── */
+    .confidence-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .confidence-score {
+      font-size: 1.2em;
+      font-weight: 700;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid var(--vscode-editorWidget-border, #454545);
+      margin: 18px 0;
+    }
+
+    .back-link {
+      font-size: 0.82em;
+      color: var(--vscode-textLink-foreground, #3794ff);
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      margin-bottom: 16px;
+      display: inline-block;
+    }
+    .back-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- Phase 1 — Input                                                        -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div id="phase-input" class="phase active">
+    <h1>🔍 IBM i Detective</h1>
+    <p class="subtitle">Describe your Code for IBM i problem and let the Detective search for a known fix.</p>
+
+    <label for="symptom-input">Describe the symptom</label>
+    <textarea
+      id="symptom-input"
+      placeholder="e.g. Extension hangs at 'Starting Mapepire' after upgrading to v3. Timeout in output channel."
+    ></textarea>
+    <p class="hint">
+      Leave blank to auto-detect from your extension logs. The Detective reads logs from
+      your local filesystem — no connection to your IBM i is needed.
+    </p>
+
+    <button id="investigate-btn">Investigate</button>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- Phase 2 — Running                                                      -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div id="phase-running" class="phase">
+    <h1>🔍 IBM i Detective</h1>
+    <p class="subtitle">Investigating…</p>
+
+    <ul class="steps">
+      <li class="step" id="step-1">
+        <span class="step-icon" id="icon-1">○</span>
+        Collecting extension logs…
+      </li>
+      <li class="step" id="step-2">
+        <span class="step-icon" id="icon-2">○</span>
+        Searching GitHub issues…
+      </li>
+      <li class="step" id="step-3">
+        <span class="step-icon" id="icon-3">○</span>
+        Scoring confidence…
+      </li>
+    </ul>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- Phase 3 — Results (match found)                                        -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div id="phase-result" class="phase">
+    <button class="back-link" id="result-back">← New investigation</button>
+    <h1>🔍 IBM i Detective — Results</h1>
+
+    <div class="confidence-row">
+      <span class="confidence-score" id="confidence-score-display">—</span>
+      <span id="confidence-badge" class="badge">—</span>
+    </div>
+
+    <!-- Matched issue card -->
+    <div class="card" id="issue-card">
+      <div class="card-header">
+        <span class="card-title" id="issue-title">—</span>
+      </div>
+      <div class="card-meta" id="issue-meta">—</div>
+
+      <div class="resolution-title">Resolution Steps</div>
+      <ol class="steps-list" id="resolution-steps"></ol>
+
+      <button class="expander-toggle" id="expander-toggle">
+        <span id="expander-arrow">▶</span> Show GitHub issue body
+      </button>
+      <div class="expander-body" id="expander-body">
+        <pre id="issue-body-text"></pre>
+        <button class="secondary copy-btn" id="copy-btn">Copy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- Phase 4 — No match                                                     -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div id="phase-nomatch" class="phase">
+    <button class="back-link" id="nomatch-back">← New investigation</button>
+    <h1>🔍 IBM i Detective — No Match Found</h1>
+
+    <div class="no-match-box">
+      <p>
+        No known issue matched your symptom with sufficient confidence. This could be a
+        new or environment-specific problem.
+      </p>
+      <p>
+        <strong>Recommended next steps:</strong>
+      </p>
+      <ol class="steps-list">
+        <li>Check the <a href="https://github.com/codefori/vscode-ibmi/issues" target="_blank">open issues on codefori/vscode-ibmi</a> manually.</li>
+        <li>Copy your extension log from VS Code Output &gt; Code for IBM i.</li>
+        <li>Open a new issue using the scaffold below.</li>
+      </ol>
+
+      <hr class="divider" />
+      <div class="resolution-title">GitHub Issue Scaffold</div>
+      <div style="position:relative">
+        <pre id="scaffold-text">
+## Symptom
+[Describe what you observe]
+
+## Environment
+- VS Code version:
+- Code for IBM i version:
+- OS:
+
+## Steps to reproduce
+1.
+2.
+
+## Extension log excerpt
+```
+[paste from VS Code Output > Code for IBM i]
+```
+
+## What I tried
+        </pre>
+        <button class="secondary copy-btn" id="copy-scaffold-btn" style="top:6px;right:6px">Copy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- Error box (shown inside whichever phase is active)                     -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div id="error-box" class="error-box" style="display:none">
+    <strong>Error:</strong> <span id="error-message">—</span>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- Script                                                                  -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <script nonce="{{nonce}}">
+    const vscode = acquireVsCodeApi();
+
+    // ── Phase helpers ─────────────────────────────────────────────────────
+    const phases = ['input', 'running', 'result', 'nomatch'];
+
+    function showPhase(name) {
+      phases.forEach(p => {
+        const el = document.getElementById('phase-' + p);
+        if (el) el.classList.toggle('active', p === name);
+      });
+      document.getElementById('error-box').style.display = 'none';
+    }
+
+    // ── Phase 1 — Investigate button ──────────────────────────────────────
+    document.getElementById('investigate-btn').addEventListener('click', () => {
+      const symptom = document.getElementById('symptom-input').value.trim();
+      showPhase('running');
+      vscode.postMessage({ type: 'investigate', symptom });
+    });
+
+    // ── Phase 2 — Progress updates ────────────────────────────────────────
+    function setStepState(step, state) {
+      const el   = document.getElementById('step-' + step);
+      const icon = document.getElementById('icon-' + step);
+      if (!el || !icon) return;
+      el.className   = 'step ' + state;
+      icon.textContent = state === 'done' ? '✔' : state === 'active' ? '●' : '○';
+    }
+
+    // ── Phase 3 — Render result ───────────────────────────────────────────
+    function renderResult(payload) {
+      const score = payload.confidence_score;
+      const band  = (payload.confidence_band || '').toUpperCase();
+
+      document.getElementById('confidence-score-display').textContent = score + ' / 100';
+
+      const badge = document.getElementById('confidence-badge');
+      badge.textContent  = band;
+      badge.className    = 'badge ' + band.toLowerCase();
+
+      if (!payload.matched || !payload.issue) {
+        showPhase('nomatch');
+        return;
+      }
+
+      const issue = payload.issue;
+
+      document.getElementById('issue-title').textContent = issue.title || '—';
+
+      // Meta: issue number + link
+      const meta = document.getElementById('issue-meta');
+      if (issue.github_issue_number && issue.github_issue_url) {
+        meta.innerHTML = 'Known issue <a href="' + issue.github_issue_url + '" target="_blank">#' +
+          issue.github_issue_number + '</a> · ' + issue.labels.join(', ');
+      } else {
+        meta.textContent = issue.labels.join(', ') || 'No linked GitHub issue';
+      }
+
+      // Resolution steps
+      const list = document.getElementById('resolution-steps');
+      list.innerHTML = '';
+      (issue.resolution_steps || []).forEach(step => {
+        const li = document.createElement('li');
+        li.textContent = step;
+        list.appendChild(li);
+      });
+
+      // Expander: issue body
+      const bodyText = issue.symptom_description || '';
+      document.getElementById('issue-body-text').textContent = bodyText;
+
+      showPhase('result');
+    }
+
+    // ── Expander toggle ───────────────────────────────────────────────────
+    document.getElementById('expander-toggle').addEventListener('click', () => {
+      const body  = document.getElementById('expander-body');
+      const arrow = document.getElementById('expander-arrow');
+      const open  = body.classList.toggle('open');
+      arrow.textContent = open ? '▼' : '▶';
+      document.getElementById('expander-toggle').childNodes[1].textContent =
+        (open ? ' Hide' : ' Show') + ' GitHub issue body';
+    });
+
+    // ── Copy buttons ──────────────────────────────────────────────────────
+    function copyText(text) {
+      vscode.postMessage({ type: 'copyIssue' });
+      // Webview navigator.clipboard may not be available; use textarea trick
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+
+    document.getElementById('copy-btn').addEventListener('click', () => {
+      copyText(document.getElementById('issue-body-text').textContent);
+    });
+
+    document.getElementById('copy-scaffold-btn').addEventListener('click', () => {
+      copyText(document.getElementById('scaffold-text').textContent);
+    });
+
+    // ── Back buttons ──────────────────────────────────────────────────────
+    document.getElementById('result-back').addEventListener('click', () => showPhase('input'));
+    document.getElementById('nomatch-back').addEventListener('click', () => showPhase('input'));
+
+    // ── Message handler (extension host → Webview) ────────────────────────
+    window.addEventListener('message', event => {
+      const msg = event.data;
+
+      if (msg.type === 'progress') {
+        // Mark previous steps done
+        for (let i = 1; i < msg.step; i++) { setStepState(i, 'done'); }
+        setStepState(msg.step, 'active');
+      }
+
+      if (msg.type === 'result') {
+        // Mark all steps done
+        for (let i = 1; i <= 3; i++) { setStepState(i, 'done'); }
+        renderResult(msg.payload);
+      }
+
+      if (msg.type === 'error') {
+        const box = document.getElementById('error-box');
+        document.getElementById('error-message').textContent = msg.message;
+        box.style.display = 'block';
+        showPhase('input');
+      }
+    });
+  </script>
+</body>
+</html>

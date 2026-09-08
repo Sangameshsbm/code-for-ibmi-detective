@@ -1,0 +1,113 @@
+name: IBM i Detective
+description: Run the IBM i Developer Detective diagnostic pipeline (mock mode — no live IBM i connection required)
+
+inputs:
+  scenario:
+    description: 'Scenario to run. Supported values: port449, 3239'
+    required: true
+  fail_on_low_confidence:
+    description: 'Set to "true" to fail the step if confidence score is below minimum_confidence'
+    required: false
+    default: 'false'
+  minimum_confidence:
+    description: 'Minimum confidence score threshold (0–100). Only used when fail_on_low_confidence is "true"'
+    required: false
+    default: '75'
+
+outputs:
+  confidence_score:
+    description: 'Numeric confidence score (0–100) for the best-matching known issue'
+    value: ${{ steps.detect.outputs.confidence_score }}
+  matched_issue_id:
+    description: 'ID of the best-matching known-issue registry entry, or "none"'
+    value: ${{ steps.detect.outputs.matched_issue_id }}
+  report_summary:
+    description: 'One-line human-readable summary of the detection result'
+    value: ${{ steps.detect.outputs.report_summary }}
+
+runs:
+  using: composite
+
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+      working-directory: ${{ github.action_path }}/../../..
+
+    # ── Detection step ──────────────────────────────────────────────────────
+    - name: Run detection (mock mode)
+      id: detect
+      shell: bash
+      working-directory: ${{ github.action_path }}/../../..
+      env:
+        SCENARIO: ${{ inputs.scenario }}
+      run: |
+        node - << 'EOF'
+        const fs   = require('fs');
+        const path = require('path');
+
+        const scenario = process.env.SCENARIO;
+        // working-directory is set to ${{ github.action_path }}/../../.. (repo root)
+        // so process.cwd() is the repo root — reliable, no __dirname needed
+        const repoRoot = process.cwd();
+
+        const fixtureMap = {
+          'port449': 'mock-extension-logs-port449.json',
+          '3239':    'mock-extension-logs-mapepire-hang.json',
+        };
+
+        const fixtureFile = fixtureMap[scenario];
+        if (!fixtureFile) {
+          console.error(`Unknown scenario: ${scenario}. Valid values: port449, 3239`);
+          process.exit(1);
+        }
+
+        const fixture  = JSON.parse(fs.readFileSync(path.join(repoRoot, 'test', 'fixtures', fixtureFile), 'utf8'));
+        const registry = JSON.parse(fs.readFileSync(path.join(repoRoot, 'data', 'known-issues.json'), 'utf8'));
+
+        const corpus = [
+          fixture.output_log       || '',
+          fixture.connection_trace || '',
+          (fixture.error_summary || []).join(' '),
+        ].join(' ').toLowerCase();
+
+        let bestScore = 0;
+        let bestEntry = null;
+
+        for (const entry of registry) {
+          const hits  = entry.keywords.filter(kw => corpus.includes(kw.toLowerCase()));
+          const score = Math.round((hits.length / entry.keywords.length) * 100);
+          if (score > bestScore) {
+            bestScore = score;
+            bestEntry = entry;
+          }
+        }
+
+        const matchedId = bestEntry ? bestEntry.id : 'none';
+        const summary   = bestEntry
+          ? `Matched "${bestEntry.title}" with confidence ${bestScore}/100`
+          : `No match found (best score: ${bestScore})`;
+
+        const outputFile = process.env.GITHUB_OUTPUT;
+        if (outputFile) {
+          fs.appendFileSync(outputFile, `confidence_score=${bestScore}\n`);
+          fs.appendFileSync(outputFile, `matched_issue_id=${matchedId}\n`);
+          fs.appendFileSync(outputFile, `report_summary=${summary}\n`);
+        }
+
+        console.log(`confidence_score : ${bestScore}`);
+        console.log(`matched_issue_id : ${matchedId}`);
+        console.log(`report_summary   : ${summary}`);
+        EOF
+
+    # ── Optional hard-fail on low confidence ───────────────────────────────
+    - name: Fail on low confidence
+      if: ${{ inputs.fail_on_low_confidence == 'true' && fromJSON(steps.detect.outputs.confidence_score) < fromJSON(inputs.minimum_confidence) }}
+      shell: bash
+      run: |
+        echo "FAIL: confidence_score ${{ steps.detect.outputs.confidence_score }} is below minimum_confidence ${{ inputs.minimum_confidence }}"
+        exit 1

@@ -1,0 +1,85 @@
+[
+  {
+    "id": "mapepire-hang-post-upgrade",
+    "title": "Extension stuck at 'Starting Mapepire' after upgrade from 2.x to 3.x",
+    "github_issue_number": 3239,
+    "github_issue_url": "https://github.com/codefori/vscode-ibmi/issues/3239",
+    "confidence_hint": 75,
+    "keywords": [
+      "mapepire",
+      "Starting Mapepire",
+      "upgrade",
+      "hang",
+      "stuck",
+      "timeout",
+      "NOXDBSRV",
+      "MCH3601",
+      "2.x",
+      "3.x",
+      "Mapepire server did not respond",
+      "stale"
+    ],
+    "symptom_description": "After upgrading Code for IBM i from v2.x to v3.x, the extension hangs indefinitely on 'Starting Mapepire'. The Mapepire server process (NOXDBSRV) from the old version may still be running, and stale service program objects in QGPL cause MCH3601 pointer errors.",
+    "resolution_steps": [
+      "End any lingering NOXDBSRV jobs on the IBM i: WRKACTJOB JOB(NOXDBSRV), then end any active ones with option 4.",
+      "Clear stale Mapepire service program objects: DLTOBJ OBJ(QGPL/QZMFSVR) OBJTYPE(*SRVPGM) — only if the object exists.",
+      "In VS Code, open Command Palette and run 'IBM i: Reinstall Mapepire server on system' (or equivalent action in the extension).",
+      "Reconnect to the IBM i system. The extension will install fresh Mapepire objects.",
+      "If the issue persists, check Output > Code for IBM i for MCH3601 details and open a new issue on codefori/vscode-ibmi with the full log."
+    ],
+    "labels": ["bug", "mapepire", "upgrade"]
+  },
+  {
+    "id": "port449-connection-refused",
+    "title": "ECONNREFUSED on port 449 — IBM i host servers not started",
+    "github_issue_number": null,
+    "github_issue_url": null,
+    "confidence_hint": 78,
+    "keywords": [
+      "port 449",
+      "449",
+      "ECONNREFUSED",
+      "TCP connection refused",
+      "connection refused",
+      "host servers",
+      "STRHOSTSVR",
+      "sign-on service",
+      "Cannot reach sign-on"
+    ],
+    "symptom_description": "The extension cannot connect because TCP port 449 (IBM i sign-on service) is not listening. This typically means the IBM i host servers have not been started with STRHOSTSVR.",
+    "resolution_steps": [
+      "On the IBM i system, sign on and run: STRHOSTSVR SERVER(*ALL)",
+      "Verify port 449 is open in the firewall/network settings between your workstation and the IBM i.",
+      "Confirm the IBM i system name or IP address is correct in the VS Code connection settings.",
+      "If the IBM i has just been IPL'd, wait a few minutes for all subsystems to start, then retry.",
+      "Check the system value QAUTOVRT and ensure it is not restricting virtual terminal connections."
+    ],
+    "labels": ["connection", "port-449", "host-servers"]
+  },
+  {
+    "id": "ssh-key-auth-failure",
+    "title": "SSH key authentication fails — key not accepted or passphrase prompt loop",
+    "github_issue_number": null,
+    "github_issue_url": null,
+    "confidence_hint": 75,
+    "keywords": [
+      "SSH",
+      "ssh key",
+      "authentication failed",
+      "passphrase",
+      "public key",
+      "Permission denied",
+      "ssh-keygen",
+      "authorized_keys"
+    ],
+    "symptom_description": "SSH key authentication to the IBM i fails. Common causes: the public key is not in the IBM i user's ~/.ssh/authorized_keys, the key algorithm is not supported, or the passphrase is incorrect.",
+    "resolution_steps": [
+      "Ensure your SSH public key is copied to the IBM i: append ~/.ssh/id_rsa.pub (or id_ed25519.pub) to /home/<user>/.ssh/authorized_keys on the IBM i.",
+      "Check authorized_keys permissions on IBM i: chmod 600 ~/.ssh/authorized_keys",
+      "Check ~/.ssh directory permissions: chmod 700 ~/.ssh",
+      "Verify the key algorithm is supported by your OpenSSH version on IBM i (RSA or ed25519 recommended).",
+      "If using a passphrase, ensure VS Code's SSH agent has the key loaded (ssh-add)."
+    ],
+    "labels": ["connection", "ssh", "authentication"]
+  }
+]

@@ -1,0 +1,191 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────────────
+  # validate-registry
+  #   Runs the keyword-matching logic inline (zero build dependencies) against
+  #   each mock fixture and asserts the confidence score meets the registry's
+  #   confidence_hint threshold.  Fails the PR if any scenario regresses.
+  # ──────────────────────────────────────────────────────────────────────────
+  validate-registry:
+    name: Validate registry – ${{ matrix.scenario }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario: [port449, 3239]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert confidence score meets registry hint
+        working-directory: vscode-ibmi-detective
+        env:
+          SCENARIO: ${{ matrix.scenario }}
+        run: |
+          node - << 'EOF'
+          const fs   = require('fs');
+          const path = require('path');
+
+          const scenario = process.env.SCENARIO;
+
+          // Map CI scenario keys to fixture filenames
+          const fixtureMap = {
+            'port449': 'mock-extension-logs-port449.json',
+            '3239':    'mock-extension-logs-mapepire-hang.json',
+          };
+
+          const fixtureFile = fixtureMap[scenario];
+          if (!fixtureFile) {
+            console.error(`Unknown scenario: ${scenario}`);
+            process.exit(1);
+          }
+
+          // Use process.cwd() — working-directory is vscode-ibmi-detective/
+          // (__dirname is undefined in heredoc/stdin Node scripts)
+          const root       = process.cwd();
+          const fixtureDir = path.join(root, 'test', 'fixtures');
+          const fixture    = JSON.parse(fs.readFileSync(path.join(fixtureDir, fixtureFile), 'utf8'));
+          const registry   = JSON.parse(fs.readFileSync(path.join(root, 'data', 'known-issues.json'), 'utf8'));
+
+          // Build a corpus from the fixture for keyword matching
+          const corpus = [
+            fixture.output_log       || '',
+            fixture.connection_trace || '',
+            (fixture.error_summary || []).join(' '),
+          ].join(' ').toLowerCase();
+
+          let bestScore = 0;
+          let bestEntry = null;
+
+          for (const entry of registry) {
+            const hits = entry.keywords.filter(kw => corpus.includes(kw.toLowerCase()));
+            const score = Math.round((hits.length / entry.keywords.length) * 100);
+            if (score > bestScore) {
+              bestScore = score;
+              bestEntry = entry;
+            }
+          }
+
+          // Determine expected registry entry for this scenario
+          const expectedIdMap = {
+            'port449': 'port449-connection-refused',
+            '3239':    'mapepire-hang-post-upgrade',
+          };
+          const expectedId   = expectedIdMap[scenario];
+          const expectedEntry = registry.find(e => e.id === expectedId);
+
+          if (!expectedEntry) {
+            console.error(`Registry entry not found for id: ${expectedId}`);
+            process.exit(1);
+          }
+
+          const confidenceHint = expectedEntry.confidence_hint;
+
+          console.log(`Scenario       : ${scenario}`);
+          console.log(`Expected entry : ${expectedId}`);
+          console.log(`Best match     : ${bestEntry ? bestEntry.id : 'none'} (score=${bestScore})`);
+          console.log(`confidence_hint: ${confidenceHint}`);
+
+          if (bestEntry && bestEntry.id !== expectedId) {
+            console.error(`FAIL: Expected best match to be "${expectedId}" but got "${bestEntry.id}"`);
+            process.exit(1);
+          }
+
+          if (bestScore < confidenceHint) {
+            console.error(`FAIL: confidence_score ${bestScore} is below confidence_hint ${confidenceHint}`);
+            process.exit(1);
+          }
+
+          console.log(`PASS: confidence_score ${bestScore} >= confidence_hint ${confidenceHint}`);
+          EOF
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # lint
+  # ──────────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint (tsc --noEmit)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: vscode-ibmi-detective/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: vscode-ibmi-detective
+
+      - name: Lint
+        run: npm run lint
+        working-directory: vscode-ibmi-detective
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # test
+  # ──────────────────────────────────────────────────────────────────────────
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: vscode-ibmi-detective/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: vscode-ibmi-detective
+
+      - name: Run tests
+        run: npm test
+        working-directory: vscode-ibmi-detective
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # package
+  # ──────────────────────────────────────────────────────────────────────────
+  package:
+    name: Package extension
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: vscode-ibmi-detective/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: vscode-ibmi-detective
+
+      - name: Compile
+        run: npm run compile
+        working-directory: vscode-ibmi-detective
+
+      - name: Package VSIX
+        run: npx vsce package --no-dependencies --out detective.vsix
+        working-directory: vscode-ibmi-detective
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: detective-vsix
+          path: vscode-ibmi-detective/detective.vsix
+          retention-days: 30

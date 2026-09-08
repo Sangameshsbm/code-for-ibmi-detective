@@ -1,0 +1,23 @@
+# Source files — not needed in the packaged extension
+src/
+test/
+packages/
+.github/
+
+# Config files
+tsconfig.json
+esbuild.js
+.eslintrc*
+.prettierrc*
+
+# Build artifacts
+*.map
+dist/*.map
+
+# Node modules
+node_modules/
+
+# Misc
+*.vsix
+.vscode-test/
+.bob/

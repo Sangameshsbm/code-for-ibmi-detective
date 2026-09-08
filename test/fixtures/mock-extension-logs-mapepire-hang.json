@@ -1,0 +1,18 @@
+{
+  "collected_at": "2025-01-15T10:42:17Z",
+  "collection_mode": "mock",
+  "vscode_version": "1.96.0",
+  "extension_version": "3.0.2",
+  "previous_extension_version": "2.14.1",
+  "upgrade_date": "2025-01-14",
+  "platform": "win32",
+  "output_log": "[2025-01-15 09:54:58] Code for IBM i: Connecting to DEVIBMI01\n[2025-01-15 09:55:00] Code for IBM i: Connection established on port 449\n[2025-01-15 09:55:01] Code for IBM i: Starting Mapepire...\n[2025-01-15 09:55:01] Code for IBM i: Launching NOXDBSRV on remote system\n[2025-01-15 09:55:06] Code for IBM i: ERROR - Mapepire server did not respond within expected time\n[2025-01-15 09:55:06] Code for IBM i: WARN  - Previous Mapepire job may still be active from version 2.x\n[2025-01-15 09:55:06] Code for IBM i: ERROR - MCH3601 received from NOXDBSRV: Pointer not set for location referenced\n[2025-01-15 10:42:17] Code for IBM i: ERROR - Connection timeout waiting for Mapepire. Status: Starting Mapepire\n[2025-01-15 10:42:17] Code for IBM i: WARN  - Upgrade from 2.14.1 to 3.0.2 detected. Mapepire server objects may need reinstall.",
+  "connection_trace": "[TRACE] 09:54:58.123 Initiating TCP connection to DEVIBMI01:449\n[TRACE] 09:55:00.341 Sign-on handshake complete\n[TRACE] 09:55:01.002 Sending STRSVR request for NOXDBSRV\n[TRACE] 09:55:01.887 NOXDBSRV job submitted to QUSRWRK\n[TRACE] 09:55:06.001 No response from NOXDBSRV after 5000ms\n[TRACE] 09:55:06.002 MCH3601 caught - stale service program objects in QGPL\n[TRACE] 10:42:17.000 Mapepire connection attempt abandoned after timeout",
+  "error_summary": [
+    "ERROR - Mapepire server did not respond within expected time",
+    "WARN  - Previous Mapepire job may still be active from version 2.x",
+    "ERROR - MCH3601 received from NOXDBSRV: Pointer not set for location referenced",
+    "ERROR - Connection timeout waiting for Mapepire. Status: Starting Mapepire",
+    "WARN  - Upgrade from 2.14.1 to 3.0.2 detected. Mapepire server objects may need reinstall."
+  ]
+}

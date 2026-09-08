@@ -1,0 +1,41 @@
+{
+  "name": "ibmi-detective-mcp",
+  "version": "0.1.0",
+  "description": "MCP server that exposes IBM i Detective diagnostics — collects Code for IBM i extension logs, searches codefori/vscode-ibmi GitHub issues, and scores confidence against the known-issue registry.",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "ibmi-detective-mcp": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "keywords": [
+    "mcp",
+    "ibm-i",
+    "as400",
+    "codefori",
+    "diagnostic",
+    "ibmi-detective"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Sangameshsbm/code-for-ibmi-detective"
+  },
+  "bugs": {
+    "url": "https://github.com/Sangameshsbm/code-for-ibmi-detective/issues"
+  },
+  "homepage": "https://github.com/Sangameshsbm/code-for-ibmi-detective#readme",
+  "files": [
+    "index.js",
+    "tools/",
+    "README.md"
+  ]
+}

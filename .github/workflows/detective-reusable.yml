@@ -1,0 +1,140 @@
+name: IBM i Detective (reusable)
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Reusable workflow — callable by any repository via `uses:`.
+#
+# Example (from codefori/vscode-ibmi or any IBM i project):
+#
+#   jobs:
+#     detect:
+#       uses: sangamesh/vscode-ibmi-detective/.github/workflows/detective-reusable.yml@main
+#       with:
+#         scenario: port449
+#         fail_on_low_confidence: true
+#         minimum_confidence: 75
+# ──────────────────────────────────────────────────────────────────────────────
+
+on:
+  workflow_call:
+    inputs:
+      scenario:
+        type: string
+        required: true
+        description: 'Scenario to run (port449 or 3239)'
+      fail_on_low_confidence:
+        type: boolean
+        required: false
+        default: false
+        description: 'Fail the workflow if confidence score is below minimum_confidence'
+      minimum_confidence:
+        type: number
+        required: false
+        default: 75
+        description: 'Minimum confidence score threshold (0–100)'
+
+    outputs:
+      confidence_score:
+        description: 'Numeric confidence score (0–100) for the best-matching issue'
+        value: ${{ jobs.run-detective.outputs.confidence_score }}
+      matched_issue_id:
+        description: 'ID of the best-matching known-issue registry entry, or "none"'
+        value: ${{ jobs.run-detective.outputs.matched_issue_id }}
+      report_summary:
+        description: 'One-line human-readable summary of the detection result'
+        value: ${{ jobs.run-detective.outputs.report_summary }}
+
+jobs:
+  run-detective:
+    name: Run IBM i Detective – ${{ inputs.scenario }}
+    runs-on: ubuntu-latest
+
+    outputs:
+      confidence_score: ${{ steps.detect.outputs.confidence_score }}
+      matched_issue_id: ${{ steps.detect.outputs.matched_issue_id }}
+      report_summary:   ${{ steps.detect.outputs.report_summary }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: vscode-ibmi-detective/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: vscode-ibmi-detective
+
+      # ── Detection step ────────────────────────────────────────────────────
+      - name: Run detection (mock mode)
+        id: detect
+        working-directory: vscode-ibmi-detective
+        env:
+          SCENARIO: ${{ inputs.scenario }}
+        run: |
+          node - << 'EOF'
+          const fs   = require('fs');
+          const path = require('path');
+
+          const scenario = process.env.SCENARIO;
+
+          const fixtureMap = {
+            'port449': 'mock-extension-logs-port449.json',
+            '3239':    'mock-extension-logs-mapepire-hang.json',
+          };
+
+          const fixtureFile = fixtureMap[scenario];
+          if (!fixtureFile) {
+            console.error(`Unknown scenario: ${scenario}. Valid values: port449, 3239`);
+            process.exit(1);
+          }
+
+          // Use process.cwd() — working-directory is vscode-ibmi-detective/
+          // (__dirname is undefined in heredoc/stdin Node scripts)
+          const root     = process.cwd();
+          const fixture  = JSON.parse(fs.readFileSync(path.join(root, 'test', 'fixtures', fixtureFile), 'utf8'));
+          const registry = JSON.parse(fs.readFileSync(path.join(root, 'data', 'known-issues.json'), 'utf8'));
+
+          const corpus = [
+            fixture.output_log       || '',
+            fixture.connection_trace || '',
+            (fixture.error_summary || []).join(' '),
+          ].join(' ').toLowerCase();
+
+          let bestScore = 0;
+          let bestEntry = null;
+
+          for (const entry of registry) {
+            const hits  = entry.keywords.filter(kw => corpus.includes(kw.toLowerCase()));
+            const score = Math.round((hits.length / entry.keywords.length) * 100);
+            if (score > bestScore) {
+              bestScore = score;
+              bestEntry = entry;
+            }
+          }
+
+          const matchedId = bestEntry ? bestEntry.id : 'none';
+          const summary   = bestEntry
+            ? `Matched "${bestEntry.title}" with confidence ${bestScore}/100`
+            : `No match found (best score: ${bestScore})`;
+
+          // Write outputs to GITHUB_OUTPUT
+          const outputFile = process.env.GITHUB_OUTPUT;
+          if (outputFile) {
+            fs.appendFileSync(outputFile, `confidence_score=${bestScore}\n`);
+            fs.appendFileSync(outputFile, `matched_issue_id=${matchedId}\n`);
+            fs.appendFileSync(outputFile, `report_summary=${summary}\n`);
+          }
+
+          console.log(`confidence_score : ${bestScore}`);
+          console.log(`matched_issue_id : ${matchedId}`);
+          console.log(`report_summary   : ${summary}`);
+          EOF
+
+      # ── Optional hard-fail on low confidence ─────────────────────────────
+      - name: Fail on low confidence
+        if: ${{ inputs.fail_on_low_confidence && fromJSON(steps.detect.outputs.confidence_score) < inputs.minimum_confidence }}
+        run: |
+          echo "FAIL: confidence_score ${{ steps.detect.outputs.confidence_score }} is below minimum_confidence ${{ inputs.minimum_confidence }}"
+          exit 1

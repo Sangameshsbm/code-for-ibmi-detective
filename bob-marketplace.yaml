@@ -1,0 +1,68 @@
+# IBM i Detective MCP Server — Bob Marketplace descriptor
+# Fields follow the Bob Marketplace convention for community MCP server listings.
+# Reference: https://marketplace.ibmbob.ai (community registry)
+
+name: ibmi-detective-mcp
+display_name: IBM i Detective MCP Server
+description: >
+  AI-assisted diagnostic engine for Code for IBM i. Collects extension logs from
+  VS Code, searches codefori/vscode-ibmi GitHub issues, and scores confidence
+  against a curated known-issue registry — all without a VS Code install.
+  Works with IBM Bob, Claude Desktop, GitHub Copilot, and Cursor.
+version: "0.1.0"
+license: MIT
+author: sangamesh
+repository: https://github.com/sangamesh/vscode-ibmi-detective
+icon: ./media/icon.png
+
+install:
+  command: npx
+  args:
+    - ibmi-detective-mcp
+
+# Bob mcp_servers config block — paste into .bob/mcp.json or bob-mcp.yaml
+bob_config:
+  mcp_servers:
+    ibmi-detective:
+      command: npx
+      args:
+        - ibmi-detective-mcp
+
+tools:
+  - name: collect_ibmi_extension_diagnostics
+    description: >
+      Collect Code for IBM i extension logs from the local VS Code log directory.
+      Supports mock mode with pre-built fixture scenarios (port449, mapepire-hang).
+    inputs:
+      mock: boolean
+      scenario: "port449 | mapepire-hang | 3239"
+
+  - name: search_ibmi_github_issues
+    description: >
+      Search codefori/vscode-ibmi GitHub issues for the given symptom keywords.
+      Returns up to five matching issues with title, state, URL, and body excerpt.
+    inputs:
+      keywords: string
+
+  - name: match_ibmi_symptom
+    description: >
+      Score a DiagnosticResult against the Known Issue Registry using keyword
+      frequency matching. Returns confidence_score (0–100), confidence_band
+      (HIGH/MEDIUM/LOW), and the best-matching known issue with resolution steps.
+    inputs:
+      diagnostic_json: string
+
+  - name: get_known_issues_registry
+    description: >
+      Return the full Known Issue Registry — a curated JSON array of common
+      Code for IBM i problems with keywords, resolution steps, and GitHub links.
+    inputs: {}
+
+keywords:
+  - ibm-i
+  - as400
+  - iseries
+  - codefori
+  - diagnostic
+  - mcp
+  - vscode

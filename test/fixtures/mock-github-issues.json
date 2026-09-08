@@ -1,0 +1,29 @@
+{
+  "search_mode": "mock",
+  "query": "Starting Mapepire stuck upgrade 3.x",
+  "total_count": 2,
+  "issues": [
+    {
+      "number": 3239,
+      "title": "Stuck on 'Starting Mapepire' after upgrading to 3.x",
+      "state": "open",
+      "url": "https://github.com/codefori/vscode-ibmi/issues/3239",
+      "created_at": "2024-11-12T14:23:00Z",
+      "updated_at": "2025-01-10T09:41:00Z",
+      "labels": ["bug", "mapepire", "needs-investigation"],
+      "body_excerpt": "After upgrading from 2.14.x to 3.0.x, the status bar is stuck showing 'Starting Mapepire' indefinitely. The connection to the IBM i system itself works (port 449 OK) but Mapepire never starts. Restarting VS Code does not help. Disconnecting and reconnecting does not help.",
+      "comments": 14
+    },
+    {
+      "number": 3201,
+      "title": "Mapepire fails to start after system upgrade - NOXDBSRV in MSGW",
+      "state": "closed",
+      "url": "https://github.com/codefori/vscode-ibmi/issues/3201",
+      "created_at": "2024-10-05T08:11:00Z",
+      "updated_at": "2024-10-18T16:22:00Z",
+      "labels": ["bug", "mapepire", "fixed"],
+      "body_excerpt": "Related issue - NOXDBSRV job enters MSGW state and blocks new Mapepire startup. Fixed in 2.14.1 by adding a pre-startup job check. May have regressed in 3.x.",
+      "comments": 8
+    }
+  ]
+}
