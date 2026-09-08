@@ -2,7 +2,7 @@
   "name": "vscode-ibmi-detective",
   "displayName": "IBM i Detective",
   "description": "AI-assisted diagnostic layer for Code for IBM i — collects extension logs, searches known issues, and scores confidence so you can fix connection problems fast.",
-  "publisher": "sangamesh",
+  "publisher": "SangameshSBM",
   "version": "0.1.0",
   "license": "MIT",
   "engines": {
@@ -58,7 +58,7 @@
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",
     "@vscode/test-cli": "^0.0.6",
-    "esbuild": "^0.20.0",
+    "esbuild": "^0.28.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   },
