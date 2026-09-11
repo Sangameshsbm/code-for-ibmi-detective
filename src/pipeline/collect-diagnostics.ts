@@ -36,6 +36,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { sanitiseLog } from './sanitise-log';
 
 export interface DiagnosticResult {
   collected_at: string;
@@ -61,7 +62,7 @@ export async function collectDiagnostics(
 ): Promise<DiagnosticResult> {
   if (mock) {
     // ── Mock mode ──────────────────────────────────────────────────────────────
-    const fixturesDir = path.join(__dirname, '..', '..', 'test', 'fixtures');
+    const fixturesDir = path.join(__dirname, '..', 'test', 'fixtures');
     const mockFiles: Record<string, string> = {
       'mapepire-hang': path.join(fixturesDir, 'mock-extension-logs-mapepire-hang.json'),
       'port449':       path.join(fixturesDir, 'mock-extension-logs-port449.json'),
@@ -105,7 +106,7 @@ export async function collectDiagnostics(
         const logFiles = fs.readdirSync(extLogDir)
           .filter(f => f.toLowerCase().includes('halcyon') || f.toLowerCase().includes('codefori'));
         if (logFiles.length > 0) {
-          outputLog = fs.readFileSync(path.join(extLogDir, logFiles[0]), 'utf8').slice(-8000);
+          outputLog = sanitiseLog(fs.readFileSync(path.join(extLogDir, logFiles[0]), 'utf8').slice(-8000));
           break;
         }
       }

@@ -64,7 +64,23 @@
       font-size: 0.78em;
       color: var(--vscode-descriptionForeground, #888);
       margin-top: 4px;
+      margin-bottom: 12px;
+    }
+
+    .consent-label {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 0.82em;
+      color: var(--vscode-descriptionForeground, #888);
       margin-bottom: 16px;
+      cursor: pointer;
+      line-height: 1.5;
+    }
+    .consent-label input[type="checkbox"] {
+      margin-top: 2px;
+      flex-shrink: 0;
+      cursor: pointer;
     }
 
     button {
@@ -255,6 +271,17 @@
       margin-top: 16px;
     }
 
+    /* ── GitHub warning (non-fatal) ─────────────────────────────────────── */
+    .github-warning {
+      background: #1c1200;
+      border: 1px solid #f59e0b;
+      border-radius: 6px;
+      padding: 10px 14px;
+      color: #f59e0b;
+      font-size: 0.82em;
+      margin-bottom: 14px;
+    }
+
     /* ── Misc ───────────────────────────────────────────────────────────── */
     .confidence-row {
       display: flex;
@@ -284,6 +311,11 @@
       display: inline-block;
     }
     .back-link:hover { text-decoration: underline; }
+    details.log-preview { margin-top: 18px; border-top: 1px solid var(--vscode-panel-border, #3c3c3c); padding-top: 12px; }
+    details.log-preview summary { cursor: pointer; font-size: 0.82em; color: var(--vscode-descriptionForeground, #858585); user-select: none; }
+    details.log-preview summary:hover { color: var(--vscode-foreground, #d4d4d4); }
+    details.log-preview .log-note { font-size: 0.78em; color: var(--vscode-descriptionForeground, #858585); margin: 6px 0 8px; }
+    details.log-preview pre { font-size: 0.75em; max-height: 220px; overflow-y: auto; }
   </style>
 </head>
 <body>
@@ -301,11 +333,15 @@
       placeholder="e.g. Extension hangs at 'Starting Mapepire' after upgrading to v3. Timeout in output channel."
     ></textarea>
     <p class="hint">
-      Leave blank to auto-detect from your extension logs. The Detective reads logs from
-      your local filesystem — no connection to your IBM i is needed.
+      Required — used to search GitHub Issues. Your extension logs are read locally and never transmitted.
     </p>
 
-    <button id="investigate-btn">Investigate</button>
+    <label class="consent-label">
+      <input type="checkbox" id="github-consent-checkbox" />
+      Search GitHub Issues for my symptom (only your typed description is sent — no logs or hostnames)
+    </label>
+
+    <button id="investigate-btn" disabled>Investigate</button>
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════════════ -->
@@ -338,6 +374,8 @@
     <button class="back-link" id="result-back">← New investigation</button>
     <h1>🔍 IBM i Detective — Results</h1>
 
+    <div id="github-warning-box" class="github-warning" style="display:none"></div>
+
     <div class="confidence-row">
       <span class="confidence-score" id="confidence-score-display">—</span>
       <span id="confidence-badge" class="badge">—</span>
@@ -361,6 +399,12 @@
         <button class="secondary copy-btn" id="copy-btn">Copy</button>
       </div>
     </div>
+
+    <details class="log-preview" id="log-preview-details" style="display:none">
+      <summary>Collected Data (sanitised)</summary>
+      <p class="log-note">Hostnames, IPs, and user IDs have been replaced with placeholders before display.</p>
+      <pre id="log-preview-text"></pre>
+    </details>
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════════════ -->
@@ -438,9 +482,15 @@
 
     // ── Phase 1 — Investigate button ──────────────────────────────────────
     document.getElementById('investigate-btn').addEventListener('click', () => {
-      const symptom = document.getElementById('symptom-input').value.trim();
+      const symptom       = document.getElementById('symptom-input').value.trim();
+      const githubConsent = document.getElementById('github-consent-checkbox').checked;
       showPhase('running');
-      vscode.postMessage({ type: 'investigate', symptom });
+      vscode.postMessage({ type: 'investigate', symptom, githubConsent });
+    });
+
+    document.getElementById('symptom-input').addEventListener('input', () => {
+      const hasText = document.getElementById('symptom-input').value.trim().length > 0;
+      document.getElementById('investigate-btn').disabled = !hasText;
     });
 
     // ── Phase 2 — Progress updates ────────────────────────────────────────
@@ -456,6 +506,17 @@
     function renderResult(payload) {
       const score = payload.confidence_score;
       const band  = (payload.confidence_band || '').toUpperCase();
+
+      // Show GitHub warning if search failed (non-fatal)
+      const warnBox = document.getElementById('github-warning-box');
+      if (warnBox) {
+        if (payload.github_warning) {
+          warnBox.textContent    = '⚠ ' + payload.github_warning;
+          warnBox.style.display  = '';
+        } else {
+          warnBox.style.display  = 'none';
+        }
+      }
 
       document.getElementById('confidence-score-display').textContent = score + ' / 100';
 
@@ -495,6 +556,15 @@
       document.getElementById('issue-body-text').textContent = bodyText;
 
       showPhase('result');
+
+      const logDetails = document.getElementById('log-preview-details');
+      const logPre     = document.getElementById('log-preview-text');
+      if (payload.sanitised_log_preview && logDetails && logPre) {
+        logPre.textContent        = payload.sanitised_log_preview;
+        logDetails.style.display  = '';
+      }
+      // PRIVACY: no vscode.setState() called — diagnostic data is intentionally
+      // not persisted to WebView state so it cannot be restored across reloads.
     }
 
     // ── Expander toggle ───────────────────────────────────────────────────
@@ -548,10 +618,9 @@
       }
 
       if (msg.type === 'error') {
-        const box = document.getElementById('error-box');
+        // Stay on the running phase so the user can read the error — don't silently reset
         document.getElementById('error-message').textContent = msg.message;
-        box.style.display = 'block';
-        showPhase('input');
+        document.getElementById('error-box').style.display = 'block';
       }
     });
   </script>

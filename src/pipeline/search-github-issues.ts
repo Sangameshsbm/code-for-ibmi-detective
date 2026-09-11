@@ -96,7 +96,7 @@ export function searchGitHubIssues(
 ): Promise<Issue[]> {
   if (mock) {
     // ── Mock mode ──────────────────────────────────────────────────────────────
-    const mockFile = path.join(__dirname, '..', '..', 'test', 'fixtures', 'mock-github-issues.json');
+    const mockFile = path.join(__dirname, '..', 'test', 'fixtures', 'mock-github-issues.json');
     try {
       const raw  = fs.readFileSync(mockFile, 'utf8');
       const data = JSON.parse(raw) as MockGitHubResponse;

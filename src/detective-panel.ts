@@ -17,8 +17,18 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 
 import { collectDiagnostics }  from './pipeline/collect-diagnostics';
-import { searchGitHubIssues }  from './pipeline/search-github-issues';
+import { searchGitHubIssues, Issue }  from './pipeline/search-github-issues';
 import { matchSymptom }        from './pipeline/match-symptom';
+
+// ── Privacy contract ──────────────────────────────────────────────────────
+// 1. DiagnosticResult (diagnostic) is a local variable in _runPipeline().
+//    It is never written to disk, globalState, workspaceState, or SecretStorage.
+// 2. The sanitised output_log is sent to the WebView for display only.
+//    The WebView does not call vscode.setState() with diagnostic data.
+// 3. The only data that crosses the network boundary is the user-typed symptom
+//    string, sent to api.github.com after explicit per-session consent.
+// 4. _githubConsentGranted is an in-memory session flag — not persisted.
+// ─────────────────────────────────────────────────────────────────────────
 
 const VIEW_TYPE = 'ibmiDetective';
 
@@ -75,9 +85,9 @@ export class DetectivePanel {
 
     // Message handler: Webview → extension host
     this._panel.webview.onDidReceiveMessage(
-      async (message: { type: string; symptom?: string }) => {
+      async (message: { type: string; symptom?: string; githubConsent?: boolean }) => {
         if (message.type === 'investigate') {
-          await this._runPipeline(message.symptom ?? '');
+          await this._runPipeline(message.symptom ?? '', message.githubConsent ?? false);
         }
       },
       null,
@@ -94,7 +104,7 @@ export class DetectivePanel {
 
   // ── Pipeline ──────────────────────────────────────────────────────────────
 
-  private async _runPipeline(symptom: string): Promise<void> {
+  private async _runPipeline(symptom: string, githubConsent: boolean): Promise<void> {
     const send = (msg: unknown): void => {
       void this._panel.webview.postMessage(msg);
     };
@@ -104,20 +114,29 @@ export class DetectivePanel {
       send({ type: 'progress', step: 1, total: 3, label: 'Collecting extension logs…' });
       const diagnostic = await collectDiagnostics(false);
 
-      // Step 2: Search GitHub issues
-      send({ type: 'progress', step: 2, total: 3, label: 'Searching GitHub issues…' });
-      const token  = await this._context.secrets.get('ibmiDetective.githubToken');
-      const issues = await searchGitHubIssues(
-        symptom || diagnostic.error_summary.join(' '),
-        token,
-      );
+      // Step 2: Search GitHub issues (only when user ticked the consent checkbox)
+      // GitHub search failure is non-fatal — we continue with local matching.
+      let issues: Issue[] = [];
+      let githubWarning: string | undefined;
+      if (githubConsent && symptom.trim()) {
+        send({ type: 'progress', step: 2, total: 3, label: 'Searching GitHub issues…' });
+        try {
+          const token = await this._context.secrets.get('ibmiDetective.githubToken');
+          issues = await searchGitHubIssues(symptom, token);
+        } catch (githubErr) {
+          githubWarning = `GitHub search unavailable: ${(githubErr as Error).message}`;
+        }
+      } else {
+        send({ type: 'progress', step: 2, total: 3, label: 'GitHub search skipped…' });
+      }
 
       // Step 3: Score confidence
       send({ type: 'progress', step: 3, total: 3, label: 'Scoring confidence…' });
       const matchResult = matchSymptom(diagnostic);
 
       // Send combined result
-      send({ type: 'result', payload: { ...matchResult, issues } });
+      // PRIVACY: output_log is already sanitised by sanitiseLog() in collect-diagnostics.ts
+      send({ type: 'result', payload: { ...matchResult, issues, github_warning: githubWarning, sanitised_log_preview: diagnostic.output_log } });
     } catch (err) {
       send({ type: 'error', message: (err as Error).message });
     }

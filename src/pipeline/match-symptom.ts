@@ -44,7 +44,7 @@ export interface MatchResult {
 
 /** Load the Known Issue Registry from the bundled data file. */
 function loadKnownIssues(): KnownIssue[] {
-  const registryPath = path.join(__dirname, '..', '..', 'data', 'known-issues.json');
+  const registryPath = path.join(__dirname, '..', 'data', 'known-issues.json');
   try {
     const raw = fs.readFileSync(registryPath, 'utf8');
     return JSON.parse(raw) as KnownIssue[];
