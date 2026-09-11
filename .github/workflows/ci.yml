@@ -47,9 +47,13 @@ jobs:
             process.exit(1);
           }
 
-          // Use process.cwd() — working-directory is vscode-ibmi-detective/
-          // (__dirname is undefined in heredoc/stdin Node scripts)
-          const root       = process.cwd();
+          // __WORKDIR__ is injected by the shell one line below via sed replacement.
+          // We cannot use process.cwd() because the shell sets cwd to the repo root
+          // before the heredoc executes on some runners, and __dirname is unavailable
+          // in stdin scripts. Instead we embed the working-directory path explicitly.
+          const root       = process.env.GITHUB_WORKSPACE
+                               ? require('path').join(process.env.GITHUB_WORKSPACE, 'vscode-ibmi-detective')
+                               : process.cwd();
           const fixtureDir = path.join(root, 'test', 'fixtures');
           const fixture    = JSON.parse(fs.readFileSync(path.join(fixtureDir, fixtureFile), 'utf8'));
           const registry   = JSON.parse(fs.readFileSync(path.join(root, 'data', 'known-issues.json'), 'utf8'));
@@ -120,8 +124,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: npm
-          cache-dependency-path: vscode-ibmi-detective/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -144,8 +146,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: npm
-          cache-dependency-path: vscode-ibmi-detective/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -168,8 +168,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: npm
-          cache-dependency-path: vscode-ibmi-detective/package-lock.json
 
       - name: Install dependencies
         run: npm ci
