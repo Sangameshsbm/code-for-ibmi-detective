@@ -46,13 +46,9 @@ jobs:
             process.exit(1);
           }
 
-          // __WORKDIR__ is injected by the shell one line below via sed replacement.
-          // We cannot use process.cwd() because the shell sets cwd to the repo root
-          // before the heredoc executes on some runners, and __dirname is unavailable
-          // in stdin scripts. Instead we embed the working-directory path explicitly.
-          const root       = process.env.GITHUB_WORKSPACE
-                               ? require('path').join(process.env.GITHUB_WORKSPACE, 'vscode-ibmi-detective')
-                               : process.cwd();
+          // All source files are at the repo root, so GITHUB_WORKSPACE is the
+          // project root directly. Fall back to process.cwd() for local runs.
+          const root       = process.env.GITHUB_WORKSPACE || process.cwd();
           const fixtureDir = path.join(root, 'test', 'fixtures');
           const fixture    = JSON.parse(fs.readFileSync(path.join(fixtureDir, fixtureFile), 'utf8'));
           const registry   = JSON.parse(fs.readFileSync(path.join(root, 'data', 'known-issues.json'), 'utf8'));
