@@ -44,7 +44,8 @@ export interface MatchResult {
 
 /** Load the Known Issue Registry from the bundled data file. */
 function loadKnownIssues(): KnownIssue[] {
-  const registryPath = path.join(__dirname, '..', 'data', 'known-issues.json');
+  // Use process.cwd() (project root) so the path works under both ts-node and compiled bundle.
+  const registryPath = path.join(process.cwd(), 'data', 'known-issues.json');
   try {
     const raw = fs.readFileSync(registryPath, 'utf8');
     return JSON.parse(raw) as KnownIssue[];

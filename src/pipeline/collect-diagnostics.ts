@@ -62,7 +62,9 @@ export async function collectDiagnostics(
 ): Promise<DiagnosticResult> {
   if (mock) {
     // ── Mock mode ──────────────────────────────────────────────────────────────
-    const fixturesDir = path.join(__dirname, '..', 'test', 'fixtures');
+    // Use process.cwd() (project root) so the path works under both ts-node
+    // (where __dirname = src/pipeline/) and the compiled bundle (dist/).
+    const fixturesDir = path.join(process.cwd(), 'test', 'fixtures');
     const mockFiles: Record<string, string> = {
       'mapepire-hang': path.join(fixturesDir, 'mock-extension-logs-mapepire-hang.json'),
       'port449':       path.join(fixturesDir, 'mock-extension-logs-port449.json'),
